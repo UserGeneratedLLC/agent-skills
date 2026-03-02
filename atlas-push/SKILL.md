@@ -178,9 +178,9 @@ Parse the response status:
 
 ### Step 8: Post-Push Playtest
 
-**Skip this step** if the user's message contains "no test", "no playtest", "skip test", "no check", or "without testing".
+**Skip this step by default.** Only run a playtest if the user's message explicitly requests it -- look for phrases like "and test", "playtest", "test it", "run test", "with test", or "check it".
 
-After a successful sync, automatically run a quick playtest to catch runtime errors introduced by the push.
+After a successful sync and only when requested, run a quick playtest to catch runtime errors introduced by the push.
 
 1. **Record pushed files.** Collect all `fsPath` values from changes where you pushed (direction `"push"` in the final sync response, or any script you merged and pushed). Also note the corresponding instance path segments (e.g. `src/server/GameManager.server.luau` corresponds to `ServerScriptService.GameManager`). You need these for error attribution.
 
