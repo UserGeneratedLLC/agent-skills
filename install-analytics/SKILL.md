@@ -13,7 +13,7 @@ Analytics is **server-only**. Require from `ServerScriptService.UserGenerated.An
 
 1. **Investigate the saving module** -- Find the game's data module, read it, identify the saving system category (A-D). Note the data template fields, profile type, events, lookup pattern, purchase receipt location. The data template is the primary source for what goes into `BuildGeneralAttributesAsync`. This is the most time-consuming step. See [adaptation-guide.md](adaptation-guide.md).
 2. **Plan the adaptation** -- Present a plan covering: saving module modifications, Profiles.luau hookup, Setup.server.luau structure (especially `BuildGeneralAttributesAsync` fields from the data template), ABTestConditions conditions, Reconciler approach. Wait for confirmation.
-3. **Adapt Profiles.luau** -- Hook into the saving module per [adaptation-guide.md](adaptation-guide.md) Step 3.
+3. **Adapt Profiles.luau** -- Hook into the saving module per [adaptation-guide.md](adaptation-guide.md) Step 3. Verify every `require()` path resolves. Pre-installed Profiles.luau often has placeholder paths that don't exist.
 4. **Adapt Setup.server.luau** -- Wire events, build attributes from data template, set up Reconciler per [adaptation-guide.md](adaptation-guide.md) Steps 4-6.
 5. **Adapt ABTestConditions.server.luau** -- Wire monetization conditions based on what's available per [adaptation-guide.md](adaptation-guide.md) Step 5.
 6. **Add game-specific analytics** -- `LogPlayerEvent` calls, counters, etc. per the principles and API below.
@@ -29,6 +29,10 @@ Analytics is **server-only**. Require from `ServerScriptService.UserGenerated.An
 | No obvious comments | Analytics calls are self-documenting. Don't add `-- Analytics: EventName`. |
 | task.spawn sparingly | Only wrap in `task.spawn` when complex multi-step logic could error. Never for simple `LogPlayerEvent` or `IncrementPlayerAttribute` calls. |
 | Pass deep data directly | Events accept nested tables natively. Pass item data, trade payloads, reward structs directly -- do NOT unpack into flat keys. |
+| Resolve IDs to data | Never pass raw ID/key maps in events. Capture resolved item data BEFORE mutations delete it. |
+| Deaths need a cause | Always include a `Cause` field on `PlayerDeath`. Check player attributes, zone info, or game state. |
+| Events + counters together | Every collection/pickup/acquisition needs BOTH a counter AND an event with the item data. |
+| Single release point | OnReleasing fires from ONE place only (the library's release callback). Profile nils in ONE place only. Fix duplicate patterns if found. |
 
 ## API Quick Reference
 
@@ -172,6 +176,12 @@ Stop and reconsider if you see:
 - `task.spawn` around simple calls
 - Attributes that weren't verified by searching
 - Structured data manually unpacked into flat event keys
+- `PlayerDeath` with empty `{}` data
+- Trade/exchange events containing raw ID strings instead of item data
+- Collection actions that only increment a counter without a corresponding event
+- Profile nil'd in multiple locations (`OnSessionEnd` AND `PlayerRemoving`)
+- OnReleasing fired from multiple locations
+- `Bindable.Event<Player, any>` instead of `Bindable.Event<Player, Profile>`
 
 For common mistakes and anti-patterns, see [mistakes.md](mistakes.md).
 For saving system adaptation patterns, see [adaptation-guide.md](adaptation-guide.md).

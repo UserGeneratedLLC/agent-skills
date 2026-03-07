@@ -73,8 +73,30 @@ Add what's missing so Profiles.luau can hook in. Skip items that already exist.
 ### What to add
 
 1. **Bindable events** (`OnAdded`, `OnReleasing`) if the module doesn't already expose them
-2. **Type exports** (`export type Data`, `export type Profile`) if not already exported
+2. **Type exports** (`export type Data`, `export type Profile`) if not already exported. For ProfileStore use `ProfileStore.Profile<Data>`, for ProfileService use the game's own alias or `{ Data: Data, MetaData: {...} }`. NEVER manually define a struct when the library exports a generic -- manual structs miss methods, signals, and metadata.
 3. **Profiles table export** if the lookup isn't publicly accessible
+
+**Type and Bindable examples:**
+
+```luau
+-- CORRECT: use the library's generic type
+export type Data = typeof(Template)
+export type Profile = ProfileStore.Profile<Data>
+
+-- WRONG: manual struct misses OnSessionEnd, EndSession, Reconcile, etc.
+export type Profile = {
+    Data: Data,
+    FirstSessionTime: number,
+    SessionLoadCount: number,
+}
+
+-- CORRECT: Bindable events use the Profile type
+DataManager.OnAdded = Bindable.new() :: Bindable.Event<Player, Profile>
+DataManager.OnReleasing = Bindable.new() :: Bindable.Event<Player, Profile>
+
+-- WRONG: any kills type checking downstream
+DataManager.OnAdded = Bindable.new() :: Bindable.Event<Player, any>
+```
 
 If the saving module is a `.server.luau` (cannot be required), convert it:
 - Rename to `init.luau` (ModuleScript)
@@ -105,6 +127,14 @@ The profile MUST be accessible via the normal lookup when OnAdded fires. Listene
 6. DataStore save executes
 
 The profile MUST still be in the table when OnReleasing fires. Listeners need to read the profile data one last time.
+
+### Single Release Point (CRITICAL)
+
+The profile MUST be nil'd in exactly ONE location -- the library's release callback (`OnSessionEnd` for ProfileStore, `ListenToRelease` for ProfileService). `PlayerRemoving` should do game-specific cleanup (plots, tools, final data writes like `LastOnline`), then call `EndSession()` which triggers the release callback. Do NOT nil the profile or fire OnReleasing from `PlayerRemoving`.
+
+If the existing game code nils the profile in both `OnSessionEnd` AND `PlayerRemoving`, this is a data module bug -- fix it. Move the nil to `OnSessionEnd` only. Duplicate nil'ing causes race conditions where `OnReleasing` listeners see a nil profile.
+
+Similarly, OnReleasing must fire from exactly ONE place (the release callback). Do NOT fire it from `PlayerRemoving` -- when `PlayerRemoving` calls `EndSession()`, that triggers the release callback which fires OnReleasing. A second fire in `PlayerRemoving` causes it to fire twice on normal leave.
 
 ### ProfileStore hookup
 
@@ -179,6 +209,8 @@ end)
 ---
 
 ## Step 3: Profiles.luau
+
+**CRITICAL: If Profiles.luau already exists** from a prior package install, do NOT assume its requires are correct. Verify that every `require()` path resolves to an actual module in the filesystem. Placeholder paths like `DataModules.ProfileTemplate` or `Server.Services.DataService` are almost always broken and must be replaced with the actual data module path.
 
 Stable skeleton -- only the marked sections change per game.
 
