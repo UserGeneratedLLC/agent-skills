@@ -9,13 +9,15 @@ Automated workflow for pushing local filesystem changes into Roblox Studio. Hand
 
 **Goal:** Get OUR changes into Studio while preserving everyone else's work.
 
+**CRITICAL: NEVER use shell/CLI commands for Atlas operations.** Atlas is an MCP server -- all interactions use the Atlas MCP tools available in your tool list, not terminal commands. There is no `atlas sync` CLI command. Running shell commands like `atlas sync` will fail.
+
 ## Prerequisites
 
 - `atlas serve` must be running (the Atlas MCP server must be reachable)
 - Roblox Studio must be open with the Atlas plugin installed and connected to the MCP stream
-- The MCP server identifier is `project-0-rojo-atlas`
+- Atlas tools are available as **direct function calls** in your tool list. Their names end with `-atlas-<toolName>` (e.g. `*-atlas-atlas_sync`, `*-atlas-get_script`). The prefix varies per project -- search your available tools for ones containing `atlas` in the name.
 
-If the MCP server is not connected, tell the user to check that `atlas serve` is running and Studio has the Atlas plugin active.
+If the MCP tools are not available or return connection errors, tell the user to check that `atlas serve` is running and Studio has the Atlas plugin active.
 
 ## Workflow
 
@@ -23,12 +25,7 @@ If the MCP server is not connected, tell the user to check that `atlas serve` is
 
 Always start with a dryrun. Never apply changes without reviewing them first.
 
-```
-CallMcpTool:
-  server: "project-0-rojo-atlas"
-  toolName: "atlas_sync"
-  arguments: { "mode": "dryrun" }
-```
+Call the **`atlas_sync`** tool with `mode: "dryrun"`.
 
 **Parse the response:** The response text contains a human-readable summary followed by a `<json>...</json>` block. Extract and parse the JSON. It has this shape:
 
@@ -74,14 +71,7 @@ Also note the `patchType`:
 
 For each unresolved change where `className` is a script type (`Script`, `LocalScript`, `ModuleScript`) and `patchType` is `"Edit"`:
 
-1. **Fetch Studio source:**
-
-```
-CallMcpTool:
-  server: "project-0-rojo-atlas"
-  toolName: "get_script"
-  arguments: { "id": "<id from the change entry>" }
-```
+1. **Fetch Studio source:** Call the **`get_script`** tool with `id: "<id from the change entry>"`.
 
 Response includes `source` (Studio's current code), `studioHash` (SHA1 of git blob format), `fsPath`, and `id`. Save the `studioHash` -- you need it for the override.
 
@@ -146,15 +136,7 @@ Construct the overrides array for the final sync. For every change you want to p
 
 ### Step 6: Final Sync
 
-```
-CallMcpTool:
-  server: "project-0-rojo-atlas"
-  toolName: "atlas_sync"
-  arguments: {
-    "mode": "standard",
-    "overrides": [ <your overrides array> ]
-  }
-```
+Call the **`atlas_sync`** tool with `mode: "standard"` and your `overrides` array.
 
 ### Step 7: Verify and Retry
 
@@ -184,18 +166,7 @@ After a successful sync and only when requested, run a quick playtest to catch r
 
 1. **Record pushed files.** Collect all `fsPath` values from changes where you pushed (direction `"push"` in the final sync response, or any script you merged and pushed). Also note the corresponding instance path segments (e.g. `src/server/GameManager.server.luau` corresponds to `ServerScriptService.GameManager`). You need these for error attribution.
 
-2. **Run the playtest:**
-
-```
-CallMcpTool:
-  server: "project-0-rojo-atlas"
-  toolName: "run_script_in_play_mode"
-  arguments: {
-    "code": "task.wait(7)\nprint(\"boot complete\")",
-    "mode": "start_play",
-    "timeout": 15
-  }
-```
+2. **Run the playtest:** Call the **`run_script_in_play_mode`** tool (may appear with a truncated/hashed name like `run_script_i*`) with `code: "task.wait(7)\nprint(\"boot complete\")"`, `mode: "start_play"`, `timeout: 15`.
 
 3. **Parse and filter errors.** From the response `errors` array, keep:
    - All entries with level `"error"`
@@ -224,31 +195,21 @@ CallMcpTool:
 
 | Error | Recovery |
 |---|---|
-| MCP server not connected | Tell user to start `atlas serve` and ensure Studio plugin is active |
+| MCP tools not found | Tell user to check that Atlas MCP server is configured and `atlas serve` is running |
 | Plugin not connected | Tell user to open Studio with Atlas plugin |
 | `sync_in_progress` | Wait a moment and retry |
 | `already_connected` | Live sync is active; changes sync automatically; no manual push needed |
 | `get_script` fails | Fall back to pushing local version only; warn user that Studio version couldn't be read |
 | Filesystem write fails | Abort and report error; do not proceed with sync |
 
-## Quick Reference: MCP Tool Calls
+## Quick Reference: Atlas MCP Tools
 
-**Dryrun:**
-```
-server: "project-0-rojo-atlas", toolName: "atlas_sync", arguments: { "mode": "dryrun" }
-```
+All tools are direct function calls in your tool list. Names follow the pattern `*-atlas-<toolName>`.
 
-**Get script:**
-```
-server: "project-0-rojo-atlas", toolName: "get_script", arguments: { "id": "<hex>" }
-```
-
-**Get script by path (alternative):**
-```
-server: "project-0-rojo-atlas", toolName: "get_script", arguments: { "fsPath": "src/server/Main.server.luau" }
-```
-
-**Sync with overrides:**
-```
-server: "project-0-rojo-atlas", toolName: "atlas_sync", arguments: { "mode": "standard", "overrides": [...] }
-```
+| Tool | Parameters | Purpose |
+|---|---|---|
+| `atlas_sync` | `mode` ("dryrun", "standard", "fastfail", "manual"), `overrides` (optional array) | Sync changes between filesystem and Studio |
+| `get_script` | `id` (hex ref) or `fsPath` (relative path), `fromDraft` (optional bool) | Read a script's source from Studio |
+| `run_script_in_play_mode` | `code` (Luau string), `mode` ("start_play" or "run_server"), `timeout` (optional seconds) | Run code in a play session then auto-stop |
+| `start_stop_play` | `mode` ("start_play", "run_server", "stop") | Manual play mode control |
+| `syncback` | (none) | Pull entire Studio state to filesystem |
