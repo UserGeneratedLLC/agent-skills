@@ -37,14 +37,34 @@ After fetching, apply two filters in order:
 
 Only the remaining runs are evaluated.
 
-### 2. Evaluate Results
+### 2. Check Bugbot Comments (PR mode only)
+
+This step runs **every iteration**, regardless of whether CI is passing, pending, or failed. Bugbot often posts review comments while CI is still running; waiting for a CI failure delays fixes unnecessarily.
+
+a. **Fetch inline review comments:**
+```bash
+gh api repos/<owner>/<repo>/pulls/<number>/comments --jq '.[] | select(.user.login | test("cursor")) | {id: .id, path: .path, body: .body, line: .line}'
+```
+
+b. **Fetch review-level comments:**
+```bash
+gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq '.[] | select(.user.login | test("cursor")) | {id: .id, state: .state, body: .body}'
+```
+
+c. **Deduplicate:** Compare each fetched comment `id` against the **handled set** (see Bugbot Deduplication below). Discard any comment whose `id` is already in the set.
+
+d. **If new (unhandled) comments exist:** For each new comment, read the relevant source code, analyze, and fix using the same rules as step 5 (Analyze and Fix). After committing and pushing the fix, add the comment's `id` to the handled set. Then reset the backoff timer and return to step 1.
+
+e. **If no new comments:** Continue to step 3.
+
+### 3. Evaluate Results
 
 - **No matching runs found** (zero results after filtering, or GitHub hasn't created the run yet) -- treat as pending. Sleep and re-poll.
 - **All passing** -- every matched run/check has a success conclusion. Report success and stop.
 - **Any pending/in_progress** -- sleep and re-poll. Use exponential backoff: start at 15 seconds, double each iteration, cap at 120 seconds. Reset the backoff timer after any push.
-- **Any failed** -- proceed to step 3.
+- **Any failed** -- proceed to step 4.
 
-### 3. Gather Failure Context
+### 4. Gather Failure Context
 
 Collect ALL of the following before attempting any fix:
 
@@ -53,17 +73,9 @@ a. **Failed check logs:**
 gh run view <run-id> --log-failed --repo <owner/repo>
 ```
 
-b. **Bugbot review comments** (PR mode only):
-```bash
-gh api repos/<owner>/<repo>/pulls/<number>/comments --jq '.[] | select(.user.login | test("cursor")) | {path: .path, body: .body, line: .line}'
-```
+b. **Unhandled bugbot comments** (PR mode only): Any bugbot comments NOT already in the handled set from step 2. Normally step 2 catches these first, but if a comment appeared between step 2 and step 4 in the same iteration, re-fetch and filter here.
 
-c. **PR review comments** (PR mode, catches review-level feedback):
-```bash
-gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq '.[] | select(.user.login | test("cursor")) | {state: .state, body: .body}'
-```
-
-### 4. Analyze and Fix
+### 5. Analyze and Fix
 
 For each failure, read the relevant source code before deciding on a fix. Do NOT guess.
 
@@ -88,7 +100,7 @@ For each failure, read the relevant source code before deciding on a fix. Do NOT
 5. If the test fixture is stale from an intentional change, update the fixture
 6. Never delete or gut a test just to make CI pass
 
-### 5. Commit and Push
+### 6. Commit and Push
 
 - Stage only files related to the fix
 - Write a descriptive commit message: what failed, why, and what was changed
@@ -107,9 +119,19 @@ EOF
 git push
 ```
 
-### 6. Re-poll
+### 7. Re-poll
 
 After pushing, reset the backoff timer to 15 seconds and return to step 1.
+
+## Bugbot Deduplication
+
+Maintain a **handled set** of bugbot comment IDs across loop iterations (not persisted across separate `watch-ci` invocations).
+
+- **Key:** The GitHub comment `id` field (unique per comment, numeric).
+- **Add to set:** After a fix for a bugbot comment is committed and pushed, add that comment's `id` to the handled set.
+- **Filter:** On each iteration, step 2 fetches all bugbot comments and discards any whose `id` is already in the handled set. Only remaining comments are processed.
+- **Re-posted issues:** If bugbot posts a **new comment** (new `id`) about the same file or issue -- for example after a new commit triggers a fresh review -- it is treated as a new finding and processed normally, because it has a different `id`.
+- **Resolved comments:** A comment that was previously handled but has since been marked "resolved" or "outdated" on GitHub is still in the handled set and will not be re-processed. Only a new comment (new `id`) triggers re-processing.
 
 ## Bail Conditions
 
