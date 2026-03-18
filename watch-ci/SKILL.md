@@ -60,7 +60,7 @@ e. **If no new comments:** Continue to step 3.
 ### 3. Evaluate Results
 
 - **No matching runs found** (zero results after filtering, or GitHub hasn't created the run yet) -- treat as pending. Sleep and re-poll.
-- **All passing** -- every matched run/check has a success conclusion. Report success and stop.
+- **All passing** -- every matched run/check has a success conclusion. Before reporting success, perform one final bugbot comment check (same as step 2a-2c). If new unhandled comments are found, process them per step 2d (fix, commit, push, reset backoff, return to step 1). Only if no new comments exist, report success and stop.
 - **Any pending/in_progress** -- sleep and re-poll. Use exponential backoff: start at 15 seconds, double each iteration, cap at 120 seconds. Reset the backoff timer after any push.
 - **Any failed** -- proceed to step 4.
 
