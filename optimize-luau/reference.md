@@ -167,40 +167,40 @@ No flags. Outputs full JSON AST with node types, source locations, variable scop
 ## Documentation to Consult
 
 Read these docs during execution if needed for specific detail. Two doc trees:
-- `.cursor/docs/shared/luau/` -- Official Luau site docs (guides, types, reference, getting-started)
-- `.cursor/docs/shared/luau-rfcs/` -- Luau RFCs (language proposals, library additions)
+- `~/.agents/docs/usergenerated/luau/` -- Official Luau site docs (guides, types, reference, getting-started)
+- `~/.agents/docs/usergenerated/luau-rfcs/` -- Luau RFCs (language proposals, library additions)
 
 **Luau site docs (primary):**
-- `.cursor/docs/shared/luau/guides/performance.md` -- **The official Luau performance guide.** Covers interpreter, compiler, fastcalls, inline caching, imports, table creation, GC, inlining, loop unrolling, upvalues, closures.
-- `.cursor/docs/shared/luau/guides/profile.md` -- Profiling guide (flame graphs, sampling)
-- `.cursor/docs/shared/luau/types/` -- Full type system docs (basic-types, tables, generics, refinements, unions-and-intersections, object-oriented-programs, roblox-types, considerations)
-- `.cursor/docs/shared/luau/getting-started/lint.md` -- All 28 lint rules
-- `.cursor/docs/shared/luau/reference/library.md` -- Complete library reference
-- `.cursor/docs/shared/luau/getting-started/compatibility.md` -- Luau vs Lua differences
+- `~/.agents/docs/usergenerated/luau/guides/performance.md` -- **The official Luau performance guide.** Covers interpreter, compiler, fastcalls, inline caching, imports, table creation, GC, inlining, loop unrolling, upvalues, closures.
+- `~/.agents/docs/usergenerated/luau/guides/profile.md` -- Profiling guide (flame graphs, sampling)
+- `~/.agents/docs/usergenerated/luau/types/` -- Full type system docs (basic-types, tables, generics, refinements, unions-and-intersections, object-oriented-programs, roblox-types, considerations)
+- `~/.agents/docs/usergenerated/luau/getting-started/lint.md` -- All 28 lint rules
+- `~/.agents/docs/usergenerated/luau/reference/library.md` -- Complete library reference
+- `~/.agents/docs/usergenerated/luau/getting-started/compatibility.md` -- Luau vs Lua differences
 
 **Luau RFCs (specific features):**
-- `.cursor/docs/shared/luau-rfcs/function-inlining.md` -- Inlining RFC (no user `@inline`, automatic at `-O2`)
-- `.cursor/docs/shared/luau-rfcs/syntax-attribute-functions-native.md` -- `@native` per-function attribute
-- `.cursor/docs/shared/luau-rfcs/function-table-create-find.md`, `function-table-clear.md`, `function-table-clone.md`, `function-table-freeze.md` -- Table operations
-- `.cursor/docs/shared/luau-rfcs/function-math-lerp.md` -- `math.lerp`
-- `.cursor/docs/shared/luau-rfcs/function-bit32-byteswap.md`, `function-bit32-countlz-countrz.md` -- CPU-level bit ops
-- `.cursor/docs/shared/luau-rfcs/function-buffer-bits.md`, `type-byte-buffer.md` -- Buffer type and ops
-- `.cursor/docs/shared/luau-rfcs/vector-library.md` -- Vector library and fastcalls
-- `.cursor/docs/shared/luau-rfcs/function-string-pack-unpack.md` -- Binary string operations
-- `.cursor/docs/shared/luau-rfcs/syntax-floor-division-operator.md` -- `//` dedicated opcode
-- `.cursor/docs/shared/luau-rfcs/syntax-compound-assignment.md` -- `+=` single LHS evaluation
-- `.cursor/docs/shared/luau-rfcs/deprecate-getfenv-setfenv.md` -- Why fenv disables optimizations
-- `.cursor/docs/shared/luau-rfcs/deprecate-table-getn-foreach.md` -- Deprecated table functions
-- `.cursor/docs/shared/luau-rfcs/generalized-iteration.md` -- Modern iteration patterns
-- `.cursor/docs/shared/luau-rfcs/generic-functions.md`, `never-and-unknown-types.md`, `syntax-type-ascription.md` -- Type system RFCs
+- `~/.agents/docs/usergenerated/luau-rfcs/function-inlining.md` -- Inlining RFC (no user `@inline`, automatic at `-O2`)
+- `~/.agents/docs/usergenerated/luau-rfcs/syntax-attribute-functions-native.md` -- `@native` per-function attribute
+- `~/.agents/docs/usergenerated/luau-rfcs/function-table-create-find.md`, `function-table-clear.md`, `function-table-clone.md`, `function-table-freeze.md` -- Table operations
+- `~/.agents/docs/usergenerated/luau-rfcs/function-math-lerp.md` -- `math.lerp`
+- `~/.agents/docs/usergenerated/luau-rfcs/function-bit32-byteswap.md`, `function-bit32-countlz-countrz.md` -- CPU-level bit ops
+- `~/.agents/docs/usergenerated/luau-rfcs/function-buffer-bits.md`, `type-byte-buffer.md` -- Buffer type and ops
+- `~/.agents/docs/usergenerated/luau-rfcs/vector-library.md` -- Vector library and fastcalls
+- `~/.agents/docs/usergenerated/luau-rfcs/function-string-pack-unpack.md` -- Binary string operations
+- `~/.agents/docs/usergenerated/luau-rfcs/syntax-floor-division-operator.md` -- `//` dedicated opcode
+- `~/.agents/docs/usergenerated/luau-rfcs/syntax-compound-assignment.md` -- `+=` single LHS evaluation
+- `~/.agents/docs/usergenerated/luau-rfcs/deprecate-getfenv-setfenv.md` -- Why fenv disables optimizations
+- `~/.agents/docs/usergenerated/luau-rfcs/deprecate-table-getn-foreach.md` -- Deprecated table functions
+- `~/.agents/docs/usergenerated/luau-rfcs/generalized-iteration.md` -- Modern iteration patterns
+- `~/.agents/docs/usergenerated/luau-rfcs/generic-functions.md`, `never-and-unknown-types.md`, `syntax-type-ascription.md` -- Type system RFCs
 
 **Cursor rules:**
-- `.cursor/rules/shared/luau.mdc` -- Luau language rules and optimization tips
+- `~/.agents/rules/usergenerated/luau.mdc` -- Luau language rules and optimization tips
 
 **Roblox docs:**
-- `.cursor/docs/shared/roblox/en-us/luau/native-code-gen.md` -- Native codegen (size limits, Vector3 annotation impact)
-- `.cursor/docs/shared/roblox/en-us/luau/type-checking.md` -- Type annotation syntax and modes
-- `.cursor/docs/shared/roblox/en-us/performance-optimization/improve.md` -- Script computation, memory, physics, rendering
-- `.cursor/docs/shared/roblox/en-us/performance-optimization/design.md` -- Event-driven patterns, frame budgets
-- `.cursor/docs/shared/roblox/en-us/luau/variables.md` -- Local vs global performance
-- `.cursor/docs/shared/roblox/en-us/luau/scope.md` -- Scope performance implications
+- `~/.agents/docs/usergenerated/roblox/en-us/luau/native-code-gen.md` -- Native codegen (size limits, Vector3 annotation impact)
+- `~/.agents/docs/usergenerated/roblox/en-us/luau/type-checking.md` -- Type annotation syntax and modes
+- `~/.agents/docs/usergenerated/roblox/en-us/performance-optimization/improve.md` -- Script computation, memory, physics, rendering
+- `~/.agents/docs/usergenerated/roblox/en-us/performance-optimization/design.md` -- Event-driven patterns, frame budgets
+- `~/.agents/docs/usergenerated/roblox/en-us/luau/variables.md` -- Local vs global performance
+- `~/.agents/docs/usergenerated/roblox/en-us/luau/scope.md` -- Scope performance implications

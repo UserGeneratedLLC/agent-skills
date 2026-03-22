@@ -338,4 +338,4 @@ Edit flags at **https://fflag.ug.xyz/**
 
 ### Assertions
 
-For the full Asserts API, read [.cursor/rules/shared/asserts.mdc](.cursor/rules/shared/asserts.mdc).
+For the full Asserts API, read [~/.agents/rules/usergenerated/asserts.mdc](~/.agents/rules/usergenerated/asserts.mdc).
