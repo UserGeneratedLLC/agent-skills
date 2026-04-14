@@ -90,6 +90,8 @@ After all items are verified and paths traced, perform a hostile review:
 - Does the plan reinvent anything that a well-known library already solves?
 - Are there security, performance, or reliability concerns the plan ignores?
 - Would an expert in this stack do it differently? How?
+- Does the plan produce modular, composable systems or tightly-coupled slop? If the same pattern appears in two or more places, it should be a shared abstraction.
+- Are there opportunities to refactor existing code touched by the plan to be more maintainable -- cleaner interfaces, better separation of concerns, reduced coupling? Flag these as part of the audit.
 
 ## Phase 5: Report and Amend
 
