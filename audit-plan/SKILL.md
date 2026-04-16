@@ -3,7 +3,7 @@ name: audit-plan
 description: >
   Audit the current plan from first principles -- verify every API, library,
   framework, and pattern referenced is current, correctly used, and follows
-  modern best practices. Uses docs-researcher subagents and firecrawl-search
+  modern best practices. Uses Context7 MCP (`/context7-mcp` skill) and firecrawl-search
   in parallel. Use when the user says "audit plan", "audit the plan",
   "verify the plan", "check the plan", "/audit-plan", or asks to validate
   APIs and practices in a plan.
@@ -62,12 +62,12 @@ For each manifest item, verify **all** of the following -- no shortcuts:
 
 **You are an orchestrator, not a worker.** Delegate verification to subagents. Spend most of your turns launching and collecting subagent results, not doing lookups yourself.
 
-- **`docs-researcher`**: Spawn in parallel batches of 10+. One per library/framework/SDK. If there are 30 items across 8 libraries, that's 8+ concurrent subagents, not 8 sequential ones. Do NOT serialize lookups.
-- **`explore`**: Spawn to read and cross-reference local docs in `.cursor/docs/` and codebase files in parallel while docs-researchers fetch external docs.
+- **`generalPurpose` (Context7)**: Spawn in parallel batches of 10+. One per library/framework/SDK. Each subagent follows the `/context7-mcp` skill: call `resolve-library-id` to find the library, then `query-docs` to fetch documentation. If there are 30 items across 8 libraries, that's 8+ concurrent subagents, not 8 sequential ones. Do NOT serialize lookups.
+- **`explore`**: Spawn to read and cross-reference local docs in `.cursor/docs/` and codebase files in parallel while Context7 lookups run.
 - **`generalPurpose`**: Spawn for complex verification requiring multi-step reasoning -- tracing a data flow across multiple files, verifying an architectural pattern against multiple sources.
 - **`shell`**: Spawn to run `firecrawl search "<api> <method> parameters documentation" --scrape` for external APIs, breaking changes, deprecations. Multiple searches in parallel.
 
-**Escalation order**: `.cursor/docs/` local docs first → context7 MCP / docs-researcher → firecrawl-search. Only escalate when the previous source is insufficient.
+**Escalation order**: `.cursor/docs/` local docs first → Context7 MCP (`/context7-mcp` skill) → firecrawl-search. Only escalate when the previous source is insufficient.
 
 When any subagent returns results, **read them fully**. Do not skim summaries.
 
