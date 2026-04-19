@@ -1,6 +1,6 @@
 ---
 name: audit-plan
-description: Audit the current plan from first principles -- verify every API, library, framework, and pattern referenced is current, correctly used, and follows modern best practices. Uses the Context7 MCP and the firecrawl MCP (`user-firecrawl`) in parallel. Use when the user says "audit plan", "audit the plan", "verify the plan", "check the plan", "/audit-plan", or asks to validate APIs and practices in a plan.
+description: Audit the current plan from first principles -- verify every API, library, framework, and pattern referenced is current, correctly used, and follows modern best practices. Uses Context7 and firecrawl (`user-firecrawl`) in parallel. Use when the user says "audit plan", "audit the plan", "verify the plan", "check the plan", "/audit-plan", or asks to validate APIs and practices in a plan.
 ---
 
 # Audit Plan
@@ -60,16 +60,16 @@ For each manifest item, verify **all** of the following -- no shortcuts:
 
 **Concurrency cap**: fan out in parallel when the work is genuinely independent, but cap around **6-8 concurrent subagents**. Opus 4.7 reasons more per tool call and spawns fewer subagents by default; pushing 10+ concurrent is usually -EV -- more context cost than lookup speedup. Sequence batches of 6-8 rather than spinning up everything at once.
 
-- **`generalPurpose` (Context7)**: One per library/framework/SDK. Each subagent uses the Context7 MCP: call `resolve-library-id` to find the library, then `query-docs` to fetch documentation.
+- **`generalPurpose` (Context7)**: One per library/framework/SDK. Each subagent uses Context7: call `resolve-library-id` to find the library, then `query-docs` to fetch documentation.
 - **`explore`**: Spawn to read and cross-reference local docs in `.cursor/docs/` and codebase files in parallel while Context7 lookups run.
 - **`generalPurpose`**: Spawn for complex verification requiring multi-step reasoning -- tracing a data flow across multiple files, verifying an architectural pattern against multiple sources.
-- **`generalPurpose` (firecrawl MCP)**: Spawn to call the `user-firecrawl` MCP via `CallMcpTool` for external APIs, breaking changes, and deprecations. Fan out in parallel -- one subagent per manifest item or per library. Each subagent should:
+- **`generalPurpose` (firecrawl)**: Spawn to call `user-firecrawl` via `CallMcpTool` for external APIs, breaking changes, and deprecations. Fan out in parallel -- one subagent per manifest item or per library. Each subagent should:
   - Start with `firecrawl_search` (no `scrapeOptions`) to locate the current docs/changelog/deprecation post. Cheaper and faster than scraping upfront.
   - Use `firecrawl_map` with a `search` filter to pinpoint the right subpage on large docs sites (e.g. `docs.example.com`) before scraping.
   - Use `firecrawl_scrape` with `formats: ["json"]` and a `jsonOptions.schema` to extract specific data points -- signatures, parameter lists, return types, error codes. Use `formats: ["markdown"]` only when reading a full page end-to-end is genuinely needed.
   - Return a summary plus source URLs. Do NOT dump full scraped pages back to the orchestrator.
 
-**Escalation order**: `.cursor/docs/` local docs first → Context7 MCP → firecrawl MCP (`firecrawl_search` → `firecrawl_map` → `firecrawl_scrape`). Only escalate when the previous source is insufficient.
+**Escalation order**: `.cursor/docs/` local docs first → Context7 → firecrawl (`firecrawl_search` → `firecrawl_map` → `firecrawl_scrape`). Only escalate when the previous source is insufficient.
 
 When any subagent returns results, **read them fully**. Do not skim summaries.
 
