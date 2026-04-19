@@ -13,7 +13,7 @@ Starts a play session in Roblox Studio, waits for scripts to boot, collects runt
 
 - `atlas serve` must be running with the Atlas MCP server reachable
 - Roblox Studio must be open with the Atlas plugin connected
-- Atlas tools are available as **direct function calls** in your tool list. Their names end with `-atlas-<toolName>` (e.g. `*-atlas-start_stop_play`, `*-atlas-run_script_i*`). The prefix varies per project -- search your available tools for ones containing `atlas` in the name.
+- Atlas tools are available as **direct function calls** in your tool list. Scan the tool list for tools whose names contain `run_script_in_play_mode` and `start_stop_play` — the workspace-specific prefix varies (e.g. `mcp-atlas-run_script_in_play_mode`). Use whichever names you actually see in your available tools.
 
 ## Workflow
 

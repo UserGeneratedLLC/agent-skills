@@ -468,12 +468,3 @@ function module.TestRobuxSpend(player, days, min, max)
     return true
 end
 ```
-
----
-
-## Known Bugs in Existing Installs
-
-Watch for these copy-paste errors:
-
-1. **dusty-trip** `Profiles.luau` line 23: `OnReleasing` handler fires `Added:Fire(...)` instead of `Releasing:Fire(...)`.
-2. **knockout2** `Profiles.luau` line 3: `game:GetService("UGApp")` instead of `game:GetService("Players")`.

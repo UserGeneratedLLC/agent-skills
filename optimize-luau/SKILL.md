@@ -9,44 +9,7 @@ Optimize Roblox Luau files for maximum performance, type safety, and native code
 
 All scripts are **Roblox Luau**. Roblox APIs are always available. The vector type is `Vector3` (Roblox userdata). We are NOT using the new type solver. Studio testing uses `--!optimize 1` by default; live experiences use `--!optimize 2`. All `luau-compile` invocations must include `--vector-lib=Vector3 --vector-ctor=new --vector-type=Vector3`. Prefer `.luau` extension over `.lua` everywhere.
 
-**Workspace hygiene:** CLI tools generate residual files (`stats.json`, `profile.out`, `coverage.out`, `trace.json`). At the start of execution, create a temp working directory and use it for all tool output:
-
-```
-# Windows
-$LUAU_TMP = New-Item -ItemType Directory -Path "$env:TEMP\luau-optimize-$(Get-Random)"
-# Linux/Mac
-LUAU_TMP=$(mktemp -d)
-```
-
-Route all output there: `--stats-file=$LUAU_TMP\stats.json`, write benchmark files to `$LUAU_TMP\bench.luau`, run profiling/coverage tools with `$LUAU_TMP` as working directory. The OS handles cleanup -- no manual deletion needed.
-
-**CLI setup:** After creating the temp directory, check if `luau-compile` is on PATH. If missing, download the latest release from https://github.com/luau-lang/luau and extract to `$LUAU_TMP`, then prepend to PATH for the session:
-
-```
-# Windows (PowerShell)
-if (-not (Get-Command luau-compile -ErrorAction SilentlyContinue)) {
-    $tag = (Invoke-RestMethod "https://api.github.com/repos/luau-lang/luau/releases/latest").tag_name
-    Invoke-WebRequest -Uri "https://github.com/luau-lang/luau/releases/download/$tag/luau-windows.zip" -OutFile "$LUAU_TMP\luau.zip"
-    Expand-Archive -Path "$LUAU_TMP\luau.zip" -DestinationPath $LUAU_TMP
-    $env:PATH = "$LUAU_TMP;$env:PATH"
-}
-
-# macOS (bash/zsh)
-if ! command -v luau-compile &> /dev/null; then
-    tag=$(curl -s "https://api.github.com/repos/luau-lang/luau/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-    curl -L "https://github.com/luau-lang/luau/releases/download/$tag/luau-macos.zip" -o "$LUAU_TMP/luau.zip"
-    unzip "$LUAU_TMP/luau.zip" -d "$LUAU_TMP" && chmod +x "$LUAU_TMP"/luau*
-    export PATH="$LUAU_TMP:$PATH"
-fi
-
-# Linux (bash)
-if ! command -v luau-compile &> /dev/null; then
-    tag=$(curl -s "https://api.github.com/repos/luau-lang/luau/releases/latest" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
-    curl -L "https://github.com/luau-lang/luau/releases/download/$tag/luau-ubuntu.zip" -o "$LUAU_TMP/luau.zip"
-    unzip "$LUAU_TMP/luau.zip" -d "$LUAU_TMP" && chmod +x "$LUAU_TMP"/luau*
-    export PATH="$LUAU_TMP:$PATH"
-fi
-```
+Set up the temp directory and Luau CLI per [cli-setup.md](cli-setup.md) before starting Phase 0. That file contains the cross-platform scripts for creating `$LUAU_TMP` and installing `luau-compile` if missing.
 
 ---
 
@@ -317,48 +280,47 @@ Native codegen has two limits: a 1M instruction cap per module and a per-experie
 
 ### Priority 2 -- Low-hanging structural wins
 
-- Hoist library functions: `local floor = math.floor` enables GETIMPORT fastcall. Fastcall builtins: `assert`, `type`, `typeof`, `rawget`/`rawset`/`rawequal`, `getmetatable`/`setmetatable`, `tonumber`/`tostring`, most `math.*` (not `noise`, `random`/`randomseed`), `bit32.*`, some `string.*`/`table.*`. Partial specializations: `assert` (unused return + truthy), `bit32.extract` (constant field/width), `select(n, ...)` O(1).
-- Replace `pairs(t)`/`ipairs(t)` -> `for k, v in t do`. Generalized iteration skips the `pairs()` call. `for i=1,#t` is slightly slower.
-- `math.floor(a / b)` -> `a // b` (dedicated VM opcode, `//=` compound form).
-- Use compound assignment (`+=`, `-=`, `*=`, `//=`, `..=`) -- LHS evaluated once.
-- String concat in loops -> `table.concat` or backtick interpolation (lowers to optimized `string.format`).
-- `table.create(n)` for known-size arrays. Sequential fill: `local t = table.create(N); for i=1,N do t[i] = ... end`.
-- `table.insert(t, v)` for unknown-size append -- `#t` is O(1) cached, worst case O(log N).
-- `a + (b - a) * t` -> `math.lerp(a, b, t)` (exact at endpoints, monotonic).
-- Manual byte swap -> `bit32.byteswap(n)` (CPU bswap).
-- Manual log2 -> `bit32.countlz(n)` (CPU instruction, ~8x faster).
-- Manual linear search -> `table.find(t, v)`.
-- Manual `pairs` clone -> `table.clone(t)`.
-- Manual `string.byte`/`string.char` -> `string.pack`/`string.unpack`.
-- `rawlen(t)` when metamethods not needed.
-- Explicit `./`/`../`/`@` prefixes in `require()`.
+Apply the lookup tables in [reference.md](reference.md): [Bytecode Pattern Catalog](reference.md#bytecode-pattern-catalog) covers dedicated ops and compound assignment (`//`, `math.lerp`, `bit32.byteswap`/`countlz`, string interpolation). [Allocation Reduction](reference.md#allocation-reduction) covers `table.create`, `table.clone`, `string.pack`/`unpack`, and `buffer` usage.
+
+Heuristics not in the tables:
+
+- **Hoist library functions.** `local floor = math.floor` enables GETIMPORT fastcall. Fastcall builtins: `assert`, `type`, `typeof`, `rawget`/`rawset`/`rawequal`, `getmetatable`/`setmetatable`, `tonumber`/`tostring`, most `math.*` (not `noise`, `random`/`randomseed`), `bit32.*`, some `string.*`/`table.*`. Partial specializations: `assert` (unused return + truthy), `bit32.extract` (constant field/width), `select(n, ...)` O(1).
+- **Generalized iteration.** `for k, v in t do` over `pairs(t)`/`ipairs(t)` -- skips the `pairs()` call. `for i=1,#t` is slightly slower.
+- **`table.insert` for unknown-size append.** `#t` is O(1) cached, worst case O(log N). Use `table.create(n)` when size is known.
+- **Manual linear search** -> `table.find(t, v)`.
+- **`rawlen(t)`** when metamethods not needed.
+- **Explicit `./`/`../`/`@` prefixes in `require()`.**
 
 ### Priority 3 -- Function structure for inlining
 
-- Break monoliths into small local functions (compiler inlines at `-O2`).
-- Inlining requirements: local, non-mutated, non-recursive, not OOP (`:` syntax), not metamethod. Disabled by `getfenv`/`setfenv`.
-- Inlining + constant folding cascade: `local function double(x) return x*2 end; local y = double(5)` folds to `y = 10`.
-- Create local function wrappers for frequently-called imported module methods.
-- Move `pcall` out of hot loops.
-- Use `obj:Method()` not `obj.Method(obj)` -- fast method call instruction.
-- `__index` should point at a table directly for inline caching.
-- Reduce mutable upvalue captures in loop closures. Immutable upvalues = no allocation, no closing.
-- Set all table fields at once (compiler infers hash capacity from subsequent assignments).
-- Loop unrolling: constant bounds only, simple body.
-- Native codegen size limits: 64K instructions/block, 32K blocks/function, 1M instructions/module. Split if exceeded.
+See [Inlining Rules](reference.md#inlining-rules) in reference.md for what blocks vs enables inlining.
+
+Heuristics:
+
+- **Break monoliths into small local functions** (compiler inlines at `-O2`).
+- **Inlining + constant folding cascade**: `local function double(x) return x*2 end; local y = double(5)` folds to `y = 10`.
+- **Create local function wrappers** for frequently-called imported module methods.
+- **Move `pcall` out of hot loops.**
+- **`obj:Method()` not `obj.Method(obj)`** -- fast method call instruction.
+- **`__index` directly at a table** (not function or deep chain) -- enables inline caching.
+- **Set all table fields at once** -- the compiler infers hash capacity from subsequent assignments.
+- **Loop unrolling**: constant bounds only, simple body.
+- **Native codegen size limits**: 64K instructions/block, 32K blocks/function, 1M instructions/module. Split if exceeded.
 
 ### Priority 4 -- Micro-optimizations (hot paths only)
 
-- Table shape consistency (same fields, same order) -- inline caching predicts hash slots.
-- `buffer` for binary data (fixed-size, offset-based, efficient native lowering).
-- `buffer.readu32` + `bit32` over `buffer.readbits` when schema known.
-- Strength reduction: `* 2^n` -> `bit32.lshift`, `/ 2^n` -> `bit32.rshift`.
-- Minimize `tostring`/`tonumber` in tight loops.
-- `table.freeze` for readonly config (avoids proxy `__index` overhead).
-- Keep `__eq` cheap -- fires on every `==`/`~=` and `table.find`.
-- `math.isfinite`/`math.isnan`/`math.isinf` over `x ~= x`.
-- Annotate `Vector3` params for native specialization.
-- `if expr then A else B` over `cond and A or B` (one branch, falsy-safe).
+See [Bytecode Pattern Catalog](reference.md#bytecode-pattern-catalog) (`if/else` over `cond and A or B`) and [Allocation Reduction](reference.md#allocation-reduction) (buffer usage) in reference.md.
+
+Heuristics:
+
+- **Table shape consistency** -- same fields, same order across instances. Inline caching predicts hash slots.
+- **`buffer.readu32` + `bit32`** over `buffer.readbits` when the schema is known at compile time.
+- **Strength reduction**: `* 2^n` -> `bit32.lshift`, `/ 2^n` -> `bit32.rshift`.
+- **Minimize `tostring`/`tonumber`** in tight loops.
+- **`table.freeze`** for readonly config (avoids proxy `__index` overhead).
+- **Keep `__eq` cheap** -- fires on every `==`/`~=` and `table.find`.
+- **`math.isfinite`/`math.isnan`/`math.isinf`** over `x ~= x`.
+- **Annotate `Vector3` params** for native specialization.
 
 ---
 

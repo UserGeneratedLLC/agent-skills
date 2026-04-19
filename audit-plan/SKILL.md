@@ -1,12 +1,6 @@
 ---
 name: audit-plan
-description: >
-  Audit the current plan from first principles -- verify every API, library,
-  framework, and pattern referenced is current, correctly used, and follows
-  modern best practices. Uses the Context7 MCP and the firecrawl MCP
-  (`user-firecrawl`) in parallel. Use when the user says "audit plan",
-  "audit the plan", "verify the plan", "check the plan", "/audit-plan",
-  or asks to validate APIs and practices in a plan.
+description: Audit the current plan from first principles -- verify every API, library, framework, and pattern referenced is current, correctly used, and follows modern best practices. Uses the Context7 MCP and the firecrawl MCP (`user-firecrawl`) in parallel. Use when the user says "audit plan", "audit the plan", "verify the plan", "check the plan", "/audit-plan", or asks to validate APIs and practices in a plan.
 ---
 
 # Audit Plan
@@ -58,11 +52,15 @@ For each manifest item, verify **all** of the following -- no shortcuts:
 
 **Fractal recursion**: When verifying an item reveals sub-items (e.g., a method takes an options object with 8 fields), add those sub-items to the manifest and verify them too. Continue recursing until every leaf is verified.
 
+**Bound the recursion.** Stop recursing once a claim reduces to a verified primitive -- a specific URL with a matching signature, a canonical doc section, or a source file already read. Do NOT re-expand claims already verified at a leaf; that just re-reads the same docs. On Opus 4.7, long-context retrieval degrades sharply above ~128k tokens, so unbounded recursion silently makes the audit worse, not better.
+
 ### Subagent Strategy
 
 **You are an orchestrator, not a worker.** Delegate verification to subagents. Spend most of your turns launching and collecting subagent results, not doing lookups yourself.
 
-- **`generalPurpose` (Context7)**: Spawn in parallel batches of 10+. One per library/framework/SDK. Each subagent uses the Context7 MCP: call `resolve-library-id` to find the library, then `query-docs` to fetch documentation. If there are 30 items across 8 libraries, that's 8+ concurrent subagents, not 8 sequential ones. Do NOT serialize lookups.
+**Concurrency cap**: fan out in parallel when the work is genuinely independent, but cap around **6-8 concurrent subagents**. Opus 4.7 reasons more per tool call and spawns fewer subagents by default; pushing 10+ concurrent is usually -EV -- more context cost than lookup speedup. Sequence batches of 6-8 rather than spinning up everything at once.
+
+- **`generalPurpose` (Context7)**: One per library/framework/SDK. Each subagent uses the Context7 MCP: call `resolve-library-id` to find the library, then `query-docs` to fetch documentation.
 - **`explore`**: Spawn to read and cross-reference local docs in `.cursor/docs/` and codebase files in parallel while Context7 lookups run.
 - **`generalPurpose`**: Spawn for complex verification requiring multi-step reasoning -- tracing a data flow across multiple files, verifying an architectural pattern against multiple sources.
 - **`generalPurpose` (firecrawl MCP)**: Spawn to call the `user-firecrawl` MCP via `CallMcpTool` for external APIs, breaking changes, and deprecations. Fan out in parallel -- one subagent per manifest item or per library. Each subagent should:
@@ -74,6 +72,16 @@ For each manifest item, verify **all** of the following -- no shortcuts:
 **Escalation order**: `.cursor/docs/` local docs first → Context7 MCP → firecrawl MCP (`firecrawl_search` → `firecrawl_map` → `firecrawl_scrape`). Only escalate when the previous source is insufficient.
 
 When any subagent returns results, **read them fully**. Do not skim summaries.
+
+### Subagent prompt template
+
+Subagents start with blank context -- they don't see the plan, the manifest, your rules, or what else is in flight. Every prompt must stand alone. Include:
+
+1. **The manifest item(s)** being verified (copy them verbatim, including numbering).
+2. **The zero-trust posture**: "Assume every claim is wrong until verified against live docs. Training data is stale. If you cannot verify, flag as UNVERIFIED."
+3. **The verification checklist** (a-g above: existence, signature, return type, deprecation, modern alternative, error contract, behavioral correctness).
+4. **The output shape**: "Return a summary of findings plus source URLs. Do NOT dump full scraped pages. Do NOT return raw Context7 query dumps -- summarize."
+5. **Scope bounds**: tell the subagent what NOT to verify (things already verified at a higher level, things out of scope).
 
 ## Phase 3: Execution Path Tracing
 
@@ -120,4 +128,4 @@ These are non-negotiable:
 - A single unverified item is a failed audit.
 - If a verification tool returns ambiguous results, escalate to a different tool.
 - If you cannot verify an item with available tools, flag it as **UNVERIFIED** with the reason.
-- Do not self-impose low parallelism limits. 10+ concurrent subagents is normal.
+- Cap concurrency at 6-8 subagents per batch. Sequencing batches is fine; swarming with 10+ at once is usually -EV on Opus 4.7.
